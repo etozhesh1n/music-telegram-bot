@@ -10,8 +10,10 @@ if sys.platform == 'win32':
 
 # Конфигурация
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8580527300:AAHVAQmHHkiMSrNZUKsosaP1mTZQ12Ia8nQ")
-CHAT_ID = os.environ.get("CHAT_ID", "1783928479")
 DOWNLOAD_DIR = "downloads"
+
+# Список разрешенных пользователей (пустой = все могут использовать)
+ALLOWED_USERS = os.environ.get("ALLOWED_USERS", "").split(",") if os.environ.get("ALLOWED_USERS") else []
 
 # Telegram API
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -53,6 +55,12 @@ def download_from_youtube(query, output_path):
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],
+                    'skip': ['hls', 'dash', 'translated_subs']
+                }
+            },
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -162,9 +170,6 @@ def main():
     # Создаем директорию для загрузок
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-    # Отправляем приветственное сообщение
-    send_message(CHAT_ID, "🤖 Бот запущен!\n\nОтправьте мне название трека в формате:\n• Исполнитель - Название\n• или просто Название трека\n\nЯ найду его на YouTube и отправлю вам!")
-
     offset = None
 
     while True:
@@ -182,6 +187,11 @@ def main():
 
                     message = update['message']
                     chat_id = message['chat']['id']
+
+                    # Проверка разрешенных пользователей (если список не пустой)
+                    if ALLOWED_USERS and str(chat_id) not in ALLOWED_USERS:
+                        send_message(chat_id, "❌ У вас нет доступа к этому боту")
+                        continue
 
                     # Обрабатываем только текстовые сообщения
                     if 'text' not in message:
@@ -211,7 +221,6 @@ def main():
 
         except KeyboardInterrupt:
             print("\n\n🛑 Бот остановлен")
-            send_message(CHAT_ID, "🛑 Бот остановлен")
             break
         except Exception as e:
             print(f"Ошибка: {e}")
